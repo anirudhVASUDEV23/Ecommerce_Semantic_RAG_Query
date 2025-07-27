@@ -6,6 +6,9 @@ app/.env
 # Ignore all CSV files (anywhere in the project)
 *.csv
 
+# But NOT csv files
+!app/resources/*.csv
+
 # Ignore all SQLite database files
 *.sqlite
 
