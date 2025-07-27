@@ -1,0 +1,21 @@
+# Ignore .env file
+app/.env
+
+# Ignore the entire resources folder
+app/resources/
+
+# Ignore all CSV files (anywhere in the project)
+*.csv
+
+# Ignore all SQLite database files
+*.sqlite
+
+# Ignore __pycache__ folders (Python bytecode)
+__pycache__/
+**/__pycache__/
+
+# Optional: Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Optional: VSCode settings
+.vscode/
