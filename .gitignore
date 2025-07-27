@@ -1,8 +1,7 @@
 # Ignore .env file
 app/.env
 
-# Ignore the entire resources folder
-app/resources/
+
 
 # Ignore all CSV files (anywhere in the project)
 *.csv

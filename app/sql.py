@@ -90,17 +90,22 @@ def run_query(query):
 
 
 def sql_chain(question):
-    sql_query=generate_sql_query(question)
-    pattern="<SQL>(.*?)</SQL>"
-    matches=re.findall(pattern,sql_query,re.DOTALL)
-    if len(matches)==0:
-        return "Sorry,We do not have the data to answer this question. Please ask another question."
-    response=run_query(matches[0].strip())
-    if response is None:
-        return "Sorry,We do not have the data to answer this question. Please ask another question."
-    context=response.to_dict(orient="records")
-    answer=data_comprehension(question,context)
+    sql_query = generate_sql_query(question)
+    pattern = "<SQL>(.*?)</SQL>"
+    matches = re.findall(pattern, sql_query, re.DOTALL)
+
+    if len(matches) == 0:
+        return "Sorry, we do not have the data to answer this question. Please ask another question."
+
+    response = run_query(matches[0].strip())
+    if response is None or response.empty:
+        return "Sorry, we do not have the data to answer this question. Please ask another question."
+
+
+    context = response.to_dict(orient="records")
+    answer = data_comprehension(question, context)
     return answer
+
 
 def generate_sql_query(question):
 
