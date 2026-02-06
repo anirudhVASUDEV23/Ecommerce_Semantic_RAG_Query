@@ -68,11 +68,12 @@ So, make sure to use %LIKE% to find the brand in condition. Never use "ILIKE".
 Create a single SQL query for the question provided. 
 The query should have all the fields in SELECT clause (i.e. SELECT *)
 
-Just the SQL query is needed, nothing more. Always provide the SQL in between the <SQL></SQL> tags."""
+Just the SQL query is needed, nothing more. Always provide the SQL in between the <SQL></SQL> tags.
+ALWAYS add LIMIT 5 to the query to avoid large payloads."""
 
 
 comprehension_prompt = """You are an expert in understanding the context of the question and replying based on the data pertaining to the question provided. You will be provided with Question: and Data:. The data will be in the form of an array or a dataframe or dict. Reply based on only the data provided as Data for answering the question asked as Question. Do not write anything like 'Based on the data' or any other technical words. Just a plain simple natural language response.
-The Data would always be in context to the question asked. For example if the question is “What is the average rating?” and data is “4.3”, then answer should be “The average rating for the product is 4.3”. So make sure the response is curated with the question and data. Make sure to note the column names to have some context, if needed, for your response.
+The Data would always be in context to the question asked. For example if the question is "What is the average rating?" and data is "4.3", then answer should be "The average rating for the product is 4.3". So make sure the response is curated with the question and data. Make sure to note the column names to have some context, if needed, for your response.
 There can also be cases where you are given an entire dataframe in the Data: field. Always remember that the data field contains the answer of the question asked. All you need to do is to always reply in the following format when asked about a product: 
 Produt title, price in indian rupees, discount, and rating, and then product link. Take care that all the products are listed in list format, one line after the other. Not as a paragraph.
 For example:
@@ -102,7 +103,10 @@ def sql_chain(question):
         return "Sorry, we do not have the data to answer this question. Please ask another question."
 
 
-    context = response.to_dict(orient="records")
+    
+    # context = response.to_dict(orient="records")
+    # Limit to top 5 records to avoid token limit errors
+    context = response.head(5).to_dict(orient="records")
     answer = data_comprehension(question, context)
     return answer
 

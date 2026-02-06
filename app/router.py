@@ -1,10 +1,17 @@
 from semantic_router import Route, SemanticRouter
 from semantic_router.encoders import HuggingFaceEncoder
+# from semantic_router.encoders import VoyageEncoder
+from dotenv import load_dotenv
+import os
 
 encoder = HuggingFaceEncoder(name="sentence-transformers/all-MiniLM-L6-v2")
+load_dotenv()
+# print(os.getenv("VOYAGE_API_KEY"))
+# encoder = VoyageEncoder(name="voyage-2")
 
 faq = Route(
     name="faq",
+    score_threshold=0.4,
     utterances=[
         # Existing utterances
         "What is the return policy of the products?",
@@ -34,6 +41,7 @@ faq = Route(
 
 sql = Route(
     name="sql",
+    score_threshold=0.4,
     utterances=[
         "I want to buy nike shoes that have 50% discount",
         "Are there any shoes under 3000",
