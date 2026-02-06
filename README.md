@@ -76,21 +76,24 @@ This project develops a sophisticated AI-powered chatbot designed to enhance the
 
 ## Project Structure
 
+```bash
 ├── app/
-│ ├── sql.py # Handles SQL query generation and database interaction
-│ ├── faq.py # Handles FAQ semantic search and response generation
-│ ├── main_chatbot.py # Main entry point for the chatbot logic (hypothetical)
-│ ├── db.sqlite # SQLite database file (generated/populated)
-│ └── resources/ # Directory for FAQ data, etc.
-│ └── faq_data.csv
+│   ├── resources/
+│   │   └── faq_data.csv       # FAQ dataset
+│   ├── db.sqlite              # SQLite database (populated via scraping)
+│   ├── faq.py                 # RAG logic for FAQ retrieval (ChromaDB + Groq)
+│   ├── main.py                # Streamlit application entry point
+│   ├── router.py              # Semantic router logic (HuggingFace Encoder)
+│   ├── sql.py                 # SQL Query Agent (Groq + SQLite)          
 ├── webscraping/
-│ ├── web_scraper.py # Selenium-based web scraping script
-│ ├── csv_to_sqlite.py # Script to load scraped CSV data into SQLite
-│ ├── flipkart_product_data.csv # Output of web scraping
-│ └── flipkart_product_links.csv # Intermediate output of web scraping
-├── .gitignore # Ensures db.sqlite is not committed
-├── requirements.txt # Python dependencies
-└── README.md # This file
+│   ├── flipkart_scraper.py    # (Assumed) Web scraping script
+│   └── ...                    # Other scraping utilities
+├── faq.png                    # Demo screenshot (FAQ)
+├── sql.png                    # Demo screenshot (SQL)
+├── .env                       # Environment variables (API Keys)
+├── requirements.txt           # Python dependencies
+└── README.md                  # Project documentation
+```
 
 ## Usage
 
@@ -118,7 +121,7 @@ This project develops a sophisticated AI-powered chatbot designed to enhance the
 3.  **Run the Chatbot:**
     Execute your main chatbot application script from the project root.
     `bash
-    python app/main_chatbot.py     # (Assuming main_chatbot.py is your entry point)
+    python app/main.py             # Launch the Streamlit app
     `
     ![alt text](faq.png)
     ![alt text](sql.png)
