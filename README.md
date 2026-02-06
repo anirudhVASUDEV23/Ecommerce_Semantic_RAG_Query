@@ -32,16 +32,6 @@ This project develops a sophisticated AI-powered chatbot designed to enhance the
 - **Data Manipulation:** Pandas.
 - **Operating System Utilities:** `os` module (for path handling).
 
-## Project Structure
-
-My apologies if the formatting made it seem like multiple files. The entire README.md content was provided as a single text block.
-
-Here is the complete README.md file again, presented as a single, copyable block of text. You should be able to click a "copy code" or similar button often provided by the chat interface itself when hovering over such a block.
-
-Markdown
-
-# Flipkart E-commerce AI Chatbot (Hybrid Conversational Assistant)
-
 ## Project Overview
 
 This project develops a sophisticated AI-powered chatbot designed to enhance the customer experience on the Flipkart e-commerce platform. It leverages a hybrid architecture, intelligent routing, and various AI/ML and data management technologies to provide comprehensive answers to user queries, ranging from general FAQs to specific product details. The project aims to evolve into a full-fledged conversational commerce solution.
