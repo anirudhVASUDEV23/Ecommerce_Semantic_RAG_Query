@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -91,6 +92,15 @@ app = FastAPI(
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# ── CORS ─────────────────────────────────────────────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -227,6 +237,8 @@ async def chat(request: Request, body: ChatRequest):
             result = await sql_chain(body.query, history)
             if isinstance(result, list):
                 result = format_product_list(result)
+        elif route_name == "contextual":
+            result = await general_llm_fallback(body.query, history)
         else:
             result = None  # triggers fallback below
 
@@ -292,8 +304,16 @@ async def chat_stream(request: Request, body: ChatRequest):
                     update_session(body.session_id, body.query, str(result))
                     yield str(result)
 
+            elif route_name == "contextual":
+                # Contextual follow-up: use session memory only
+                full_response = ""
+                async for chunk in general_llm_fallback_stream(body.query, history):
+                    full_response += chunk
+                    yield chunk
+                update_session(body.session_id, body.query, full_response)
+
             else:
-                # Unknown route — answer from conversation history
+                # Unknown / out-of-scope — no LLM call if no history
                 full_response = ""
                 async for chunk in general_llm_fallback_stream(body.query, history):
                     full_response += chunk

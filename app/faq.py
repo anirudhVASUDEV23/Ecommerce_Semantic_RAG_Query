@@ -57,30 +57,48 @@ async def get_relevant_qa(query: str) -> dict:
     return await asyncio.to_thread(_get_relevant_qa_sync, query)
 
 
+# ── Out-of-scope canned reply ────────────────────────────────────────────────
+_OUT_OF_SCOPE = (
+    "I'm sorry, I don't have information about that. \n\n"
+    "I can help you with:\n"
+    "- 👟 **Finding shoes** — search by brand, price, rating, or discount\n"
+    "- ❓ **Support questions** — returns, shipping, payments\n"
+    "- 💬 **Follow-up questions** about shoes I've already shown you"
+)
+
+_FALLBACK_SYSTEM = (
+    "You are FlipAssist, a Flipkart shoe-store assistant. "
+    "Your ONLY job is to answer follow-up questions about products or topics "
+    "already discussed in the conversation history below. "
+    "Do NOT use any outside knowledge. "
+    "Do NOT ask the user for more information or more context. "
+    "If the question cannot be answered from the conversation history, "
+    "reply with exactly: \""
+    + _OUT_OF_SCOPE
+    + "\""
+)
+
+
 # ── General LLM fallback (uses conversation history only) ────────────────────
 async def general_llm_fallback(
     query: str, history: list[dict] | None = None
 ) -> str:
     """
-    Answer a query purely from conversation history when SQL/FAQ chains fail.
-    Handles follow-up questions like 'Is this a sports shoe?' that refer to
-    products already shown in the chat.
+    Answer a follow-up query using only conversation history.
+    If there is no history context, return the canned out-of-scope message
+    immediately without calling the LLM.
     """
-    system = (
-        "You are a helpful e-commerce assistant. "
-        "Answer the user's question using the conversation history provided. "
-        "If the question refers to a previously mentioned product, use that context. "
-        "If you cannot answer from the history, say 'I don't have enough context to answer that.'"
-    )
-    messages = [{"role": "system", "content": system}]
-    if history:
-        messages.extend(history[-10:])
+    if not history:
+        return _OUT_OF_SCOPE
+
+    messages = [{"role": "system", "content": _FALLBACK_SYSTEM}]
+    messages.extend(history[-10:])
     messages.append({"role": "user", "content": query})
 
     completion = await groq_client.chat.completions.create(
         messages=messages,
         model=GROQ_MODEL,
-        temperature=0.3,
+        temperature=0.1,
     )
     return completion.choices[0].message.content
 
@@ -89,22 +107,19 @@ async def general_llm_fallback_stream(
     query: str, history: list[dict] | None = None
 ) -> AsyncGenerator[str, None]:
     """Streaming version of general_llm_fallback."""
-    system = (
-        "You are a helpful e-commerce assistant. "
-        "Answer the user's question using the conversation history provided. "
-        "If the question refers to a previously mentioned product, use that context. "
-        "If you cannot answer from the history, say 'I don't have enough context to answer that.'"
-    )
-    messages = [{"role": "system", "content": system}]
-    if history:
-        messages.extend(history[-10:])
+    if not history:
+        yield _OUT_OF_SCOPE
+        return
+
+    messages = [{"role": "system", "content": _FALLBACK_SYSTEM}]
+    messages.extend(history[-10:])
     messages.append({"role": "user", "content": query})
 
     stream = await groq_client.chat.completions.create(
         messages=messages,
         model=GROQ_MODEL,
         stream=True,
-        temperature=0.3,
+        temperature=0.1,
     )
     async for chunk in stream:
         content = chunk.choices[0].delta.content
