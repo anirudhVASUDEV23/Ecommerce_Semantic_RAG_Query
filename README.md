@@ -32,6 +32,16 @@ This project develops a sophisticated AI-powered chatbot designed to enhance the
 - **Data Manipulation:** Pandas.
 - **Operating System Utilities:** `os` module (for path handling).
 
+## Project Structure
+
+My apologies if the formatting made it seem like multiple files. The entire README.md content was provided as a single text block.
+
+Here is the complete README.md file again, presented as a single, copyable block of text. You should be able to click a "copy code" or similar button often provided by the chat interface itself when hovering over such a block.
+
+Markdown
+
+# Flipkart E-commerce AI Chatbot (Hybrid Conversational Assistant)
+
 ## Project Overview
 
 This project develops a sophisticated AI-powered chatbot designed to enhance the customer experience on the Flipkart e-commerce platform. It leverages a hybrid architecture, intelligent routing, and various AI/ML and data management technologies to provide comprehensive answers to user queries, ranging from general FAQs to specific product details. The project aims to evolve into a full-fledged conversational commerce solution.
@@ -66,24 +76,21 @@ This project develops a sophisticated AI-powered chatbot designed to enhance the
 
 ## Project Structure
 
-```bash
 ├── app/
-│   ├── resources/
-│   │   └── faq_data.csv       # FAQ dataset
-│   ├── db.sqlite              # SQLite database (populated via scraping)
-│   ├── faq.py                 # RAG logic for FAQ retrieval (ChromaDB + Groq)
-│   ├── main.py                # Streamlit application entry point
-│   ├── router.py              # Semantic router logic (HuggingFace Encoder)
-│   ├── sql.py                 # SQL Query Agent (Groq + SQLite)          
+│ ├── sql.py # Handles SQL query generation and database interaction
+│ ├── faq.py # Handles FAQ semantic search and response generation
+│ ├── main_chatbot.py # Main entry point for the chatbot logic (hypothetical)
+│ ├── db.sqlite # SQLite database file (generated/populated)
+│ └── resources/ # Directory for FAQ data, etc.
+│ └── faq_data.csv
 ├── webscraping/
-│   ├── flipkart_scraper.py    # (Assumed) Web scraping script
-│   └── ...                    # Other scraping utilities
-├── faq.png                    # Demo screenshot (FAQ)
-├── sql.png                    # Demo screenshot (SQL)
-├── .env                       # Environment variables (API Keys)
-├── requirements.txt           # Python dependencies
-└── README.md                  # Project documentation
-```
+│ ├── web_scraper.py # Selenium-based web scraping script
+│ ├── csv_to_sqlite.py # Script to load scraped CSV data into SQLite
+│ ├── flipkart_product_data.csv # Output of web scraping
+│ └── flipkart_product_links.csv # Intermediate output of web scraping
+├── .gitignore # Ensures db.sqlite is not committed
+├── requirements.txt # Python dependencies
+└── README.md # This file
 
 ## Usage
 
@@ -111,7 +118,7 @@ This project develops a sophisticated AI-powered chatbot designed to enhance the
 3.  **Run the Chatbot:**
     Execute your main chatbot application script from the project root.
     `bash
-    python app/main.py             # Launch the Streamlit app
+    python app/main_chatbot.py     # (Assuming main_chatbot.py is your entry point)
     `
     ![alt text](faq.png)
     ![alt text](sql.png)

@@ -65,6 +65,11 @@ total_ratings - integer (total number of ratings for the product)
 </schema>
 Make sure whenever you try to search for the brand name, the name can be in any case. 
 So, make sure to use %LIKE% to find the brand in condition. Never use "ILIKE". 
+
+IMPORTANT: The 'title' column contains the product name and description (e.g., "Campus Women Running Shoes"). 
+If the user asks for "Ladies shoes", "Running shoes", "Walking shoes", etc., you MUST search the 'title' column using `LIKE %keyword%`.
+Example: For "Ladies shoes", add `title LIKE '%Women%' OR title LIKE '%Ladies%'` to the WHERE clause.
+
 Create a single SQL query for the question provided. 
 The query should have all the fields in SELECT clause (i.e. SELECT *)
 
@@ -107,6 +112,11 @@ def sql_chain(question):
     # context = response.to_dict(orient="records")
     # Limit to top 5 records to avoid token limit errors
     context = response.head(5).to_dict(orient="records")
+
+    # Check if the result is likely a product list (contains 'product_link')
+    if 'product_link' in response.columns:
+        return context
+
     answer = data_comprehension(question, context)
     return answer
 

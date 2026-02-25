@@ -1,5 +1,5 @@
 from semantic_router import Route, SemanticRouter
-from semantic_router.encoders import HuggingFaceEncoder
+from semantic_router.encoders.huggingface import HuggingFaceEncoder
 # from semantic_router.encoders import VoyageEncoder
 from dotenv import load_dotenv
 import os
@@ -47,7 +47,15 @@ sql = Route(
         "Are there any shoes under 3000",
         "Do you formal shoes in size 9",
         "Are there any Puma shoes on sale?",
-        "What is the price of puma running shoes?"
+        "What is the price of puma running shoes?",
+        "Give me 5 top rated products",
+        "Show me the best selling items",
+        "List all products under 5000 rupees",
+        "Do you have any discounts on ladies shoes?",
+        "Sort products by price high to low",
+        "What are the cheapest options available?",
+        "I am looking for a gift under 2000",
+        "Show me products with rating above 4"
     ]
 )
 

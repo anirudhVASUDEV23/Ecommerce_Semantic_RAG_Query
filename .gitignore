@@ -1,7 +1,7 @@
 # Ignore .env file
 app/.env
 
-
+node_modules/
 
 # Ignore all CSV files (anywhere in the project)
 *.csv

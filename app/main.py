@@ -19,12 +19,30 @@ def setup_faq_data_ingestion():
 
 setup_faq_data_ingestion()
 
+def format_product_list(products):
+    formatted_output = ""
+    for item in products:
+        title = item.get('title', 'Unknown Product')
+        price = item.get('price', 'N/A')
+        discount = item.get('discount', 0)
+        rating = item.get('avg_rating', 'No rating')
+        link = item.get('product_link', '#')
+        
+        if isinstance(discount, (float, int)) and discount > 0:
+            disc_text = f"({int(discount * 100)} percent off)"
+        else:
+            disc_text = "(No discount)"
+            
+        formatted_output += f"**{title}**: Rs. {price}, {disc_text}, Rating: {rating} [🔗]({link})\n\n"
+    return formatted_output
+
 def ask(query):
     route=router(query).name
     if route == "faq":
-        
+        print("Route is: faq")
         return faq_chain(query)
     elif route=="sql":
+        print("Route is: sql")
         return sql_chain(query)
     else:
         return f"I don't have the knowledge to answer that question."
@@ -50,6 +68,10 @@ if query:
     st.session_state["messages"].append({"role":"user","content":query})
 
     response=ask(query)
+    
+    if isinstance(response, list):
+        response = format_product_list(response)
+        
     with st.chat_message("ai"):
         st.markdown(response)
 
