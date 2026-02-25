@@ -1,52 +1,20 @@
 import sqlite3
-import pandas as pd
-from groq import Groq
-import os
 import re
+import asyncio
+import pandas as pd
+from groq import AsyncGroq
 from pathlib import Path
-from pandas import DataFrame
-from dotenv import load_dotenv
+from config import settings
 
-load_dotenv()
+GROQ_MODEL = settings.GROQ_MODEL
+db_path = Path(__file__).parent / "db.sqlite"
+client_sql = AsyncGroq(api_key=settings.GROQ_API_KEY)  # explicit key from config
 
-# ##The Pandas DataFrame method df.to_dict(orient="records") converts a DataFrame into a list of dictionaries.
-
-# Here's a breakdown of what it does:
-
-# df: This refers to your Pandas DataFrame.
-
-# .to_dict(): This is a method that converts the DataFrame into a Python dictionary.
-
-# orient="records": This argument specifies the format of the output dictionary. When orient is set to "records", the DataFrame is converted into a list of dictionaries.
-
-# Each dictionary in the list represents a row from the DataFrame.
-
-# The keys of each dictionary are the column names of the DataFrame.
-
-# The values in each dictionary are the data values for that specific row and column.
-
-# Example:
-
-# Let's say you have a DataFrame df like this:
-
-#    Name  Age  City
-# 0  Alice   30  NYC
-# 1    Bob   24  LA
-# 2  Charlie 35  Chicago
-# Using df.to_dict(orient="records") would produce the following output:
-
-# Python
-
-# [
-#     {'Name': 'Alice', 'Age': 30, 'City': 'NYC'},
-#     {'Name': 'Bob', 'Age': 24, 'City': 'LA'},
-#     {'Name': 'Charlie', 'Age': 35, 'City': 'Chicago'}
-# ]  This format is very common and useful when you need to serialize DataFrame data into a JSON-like structure, process row by row, or pass it to APIs that expect a list of objects.
-
-GROQ_MODEL=os.environ['GROQ_MODEL']
-
-db_path=Path(__file__).parent/"db.sqlite"
-client_sql=Groq()
+# ── Blocked SQL patterns (safety) ─────────────────────────────────────────────
+_BLOCKED = re.compile(
+    r"\b(DROP|DELETE|INSERT|UPDATE|CREATE|ALTER|EXEC|TRUNCATE|REPLACE|MERGE)\b",
+    re.IGNORECASE,
+)
 
 sql_prompt = """You are an expert in understanding the database schema and generating SQL queries for a natural language question asked
 pertaining to the data you have. The schema is provided in the schema tags. 
@@ -85,88 +53,92 @@ For example:
 1. Campus Women Running Shoes: Rs. 1104 (35 percent off), Rating: 4.4 <link>
 2. Campus Women Running Shoes: Rs. 1104 (35 percent off), Rating: 4.4 <link>
 3. Campus Women Running Shoes: Rs. 1104 (35 percent off), Rating: 4.4 <link>
-
 """
 
-def run_query(query):
-    if query.strip().upper().startswith('SELECT'):##as the query will be passed by an LLM
-            with sqlite3.connect(db_path) as conn:
-                df=pd.read_sql_query(query,conn)
-                return df
+
+# ── SQL Safety ────────────────────────────────────────────────────────────────
+def validate_sql(query: str) -> None:
+    """Raise ValueError if query is not a safe SELECT statement."""
+    stripped = query.strip().upper()
+    if not stripped.startswith("SELECT"):
+        raise ValueError(f"Only SELECT queries are allowed. Got: {query[:80]}")
+    if _BLOCKED.search(query):
+        raise ValueError(f"Query contains a blocked SQL keyword: {query[:80]}")
 
 
-def sql_chain(question):
-    sql_query = generate_sql_query(question)
-    pattern = "<SQL>(.*?)</SQL>"
-    matches = re.findall(pattern, sql_query, re.DOTALL)
+# ── DB ────────────────────────────────────────────────────────────────────────
+def _run_query_sync(query: str) -> pd.DataFrame:
+    validate_sql(query)
+    with sqlite3.connect(db_path) as conn:
+        return pd.read_sql_query(query, conn)
 
-    if len(matches) == 0:
+
+async def run_query(query: str) -> pd.DataFrame:
+    """Run a SELECT query against SQLite in a thread (non-blocking)."""
+    return await asyncio.to_thread(_run_query_sync, query)
+
+
+# ── LLM calls ─────────────────────────────────────────────────────────────────
+async def generate_sql_query(question: str, history: list[dict] | None = None) -> str:
+    messages = [{"role": "system", "content": sql_prompt}]
+    if history:
+        messages.extend(history[-10:])  # last 5 turns (10 messages)
+    messages.append({"role": "user", "content": question})
+
+    completion = await client_sql.chat.completions.create(
+        messages=messages,
+        model=GROQ_MODEL,
+        temperature=0.2,
+        max_tokens=1024,
+    )
+    return completion.choices[0].message.content
+
+
+async def data_comprehension(
+    question: str, context: list, history: list[dict] | None = None
+) -> str:
+    messages = [{"role": "system", "content": comprehension_prompt}]
+    if history:
+        messages.extend(history[-10:])
+    messages.append({"role": "user", "content": f"Question: {question}\nData: {context}"})
+
+    completion = await client_sql.chat.completions.create(
+        messages=messages,
+        model=GROQ_MODEL,
+        temperature=0.2,
+    )
+    return completion.choices[0].message.content
+
+
+# ── Chain ─────────────────────────────────────────────────────────────────────
+async def sql_chain(question: str, history: list[dict] | None = None) -> str | list:
+    sql_raw = await generate_sql_query(question, history)
+    matches = re.findall(r"<SQL>(.*?)</SQL>", sql_raw, re.DOTALL)
+
+    if not matches:
         return "Sorry, we do not have the data to answer this question. Please ask another question."
 
-    response = run_query(matches[0].strip())
-    if response is None or response.empty:
+    try:
+        df = await run_query(matches[0].strip())
+    except ValueError as e:
+        return f"Invalid query generated: {e}"
+
+    if df is None or df.empty:
         return "Sorry, we do not have the data to answer this question. Please ask another question."
 
+    context = df.head(5).to_dict(orient="records")
 
-    
-    # context = response.to_dict(orient="records")
-    # Limit to top 5 records to avoid token limit errors
-    context = response.head(5).to_dict(orient="records")
+    if "product_link" in df.columns:
+        return context  # formatted by the caller (api.py / main.py)
 
-    # Check if the result is likely a product list (contains 'product_link')
-    if 'product_link' in response.columns:
-        return context
-
-    answer = data_comprehension(question, context)
-    return answer
+    return await data_comprehension(question, context, history)
 
 
-def generate_sql_query(question):
+if __name__ == "__main__":
+    import asyncio
 
-    chat_completion=client_sql.chat.completions.create(
-         messages=[
-              {
-                   "role":"system",
-                   "content":sql_prompt
-              },
-              {
-                   "role":"user",
-                   "content":question
-              }
-         ],
-         model=GROQ_MODEL,
-         temperature=0.2,
-         max_tokens=1024
-    )
+    async def _test():
+        question = "Give me Puma Shoes with rating higher than 4.5 and more than 30% discount"
+        print(await sql_chain(question))
 
-    return chat_completion.choices[0].message.content
-
-def data_comprehension(question,context):
-
-    chat_completion=client_sql.chat.completions.create(
-         messages=[
-              {
-                   "role":"system",
-                   "content":comprehension_prompt
-              },
-              {
-                   "role":"user",
-                   "content":f"Question: {question}\nData: {context}"
-              }
-         ],
-         model=GROQ_MODEL,
-         temperature=0.2,
-         
-    )
-
-    return chat_completion.choices[0].message.content
-
-
-
-
-if __name__=="__main__":
-
-    question="Give me Puma Shoes with rating higher than 4.5 and more than 30% discount"
-
-    answer=sql_chain(question)
-    print(answer)
+    asyncio.run(_test())

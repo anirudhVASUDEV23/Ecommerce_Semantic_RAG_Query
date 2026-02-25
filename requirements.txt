@@ -1,5 +1,6 @@
 # Core UI
 streamlit==1.44.1
+requests==2.32.5
 
 # LLM Client
 groq==0.30.0
@@ -18,3 +19,9 @@ sentence-transformers==5.0.0
 
 # Semantic Routing
 semantic-router[huggingface]==0.1.12
+
+# FastAPI Backend
+fastapi==0.115.5
+uvicorn==0.32.1
+slowapi==0.1.9
+pydantic-settings==2.10.1
