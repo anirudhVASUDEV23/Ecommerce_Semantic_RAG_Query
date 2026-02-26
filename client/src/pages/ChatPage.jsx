@@ -32,7 +32,7 @@ function TypingDots() {
           key={i}
           style={{
             width: 7, height: 7, borderRadius: '50%',
-            background: '#6366f1',
+            background: 'var(--primary)',
             animation: `blink 1.2s ${i * 0.22}s ease-in-out infinite`,
           }}
         />
@@ -133,9 +133,9 @@ function Message({ msg }) {
             style={{
               padding: '13px 17px',
               borderRadius: msg.route ? '4px 18px 18px 18px' : '18px',
-              background: 'rgba(15,23,42,0.9)',
-              border: '1px solid rgba(255,255,255,0.06)',
-              color: '#cbd5e1',
+              background: 'var(--bubble-bg)',
+              border: '1px solid var(--bubble-border)',
+              color: 'var(--foreground)',
               fontSize: 14,
               lineHeight: 1.7,
             }}
@@ -149,14 +149,14 @@ function Message({ msg }) {
                     <p style={{ margin: '0 0 8px', lineHeight: 1.7 }}>{children}</p>
                   ),
                   strong: ({ children }) => (
-                    <strong style={{ color: '#f1f5f9', fontWeight: 600 }}>{children}</strong>
+                    <strong style={{ color: 'var(--foreground)', fontWeight: 600 }}>{children}</strong>
                   ),
                   a: ({ href, children }) => (
                     <a
                       href={href}
                       target="_blank"
                       rel="noreferrer"
-                      style={{ color: '#818cf8', textDecoration: 'underline' }}
+                      style={{ color: 'var(--accent)', textDecoration: 'underline' }}
                     >
                       {children}
                     </a>
@@ -178,7 +178,7 @@ function Message({ msg }) {
                 style={{
                   display: 'inline-block',
                   width: 2, height: 14,
-                  background: '#6366f1',
+                  background: 'var(--primary)',
                   marginLeft: 2,
                   verticalAlign: 'middle',
                   animation: 'blink 1s step-end infinite',
@@ -189,7 +189,7 @@ function Message({ msg }) {
 
           {/* Timestamp */}
           {msg.timestamp && !msg.streaming && (
-            <div style={{ fontSize: 10, color: '#1e3a5f', marginTop: 5, paddingLeft: 2 }}>
+            <div style={{ fontSize: 10, color: 'var(--muted-foreground)', marginTop: 5, paddingLeft: 2, opacity: 0.5 }}>
               {msg.timestamp}
             </div>
           )}
@@ -213,10 +213,19 @@ export default function ChatPage() {
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [showScrollBtn, setShowScrollBtn] = useState(false)
+  const [theme, setTheme] = useState(() => {
+    try { return localStorage.getItem('flip-theme') || 'dark' } catch { return 'dark' }
+  })
 
   const endRef = useRef(null)
   const containerRef = useRef(null)
   const textareaRef = useRef(null)
+
+  // Sync theme to <html> data-theme and localStorage
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    try { localStorage.setItem('flip-theme', theme) } catch {}
+  }, [theme])
 
   function now() {
     return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -308,9 +317,14 @@ export default function ChatPage() {
   }
 
   const showSuggestions = messages.length <= 1
+  const isDark = theme === 'dark'
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#020817', color: '#e2e8f0' }}>
+    <div style={{
+      display: 'flex', flexDirection: 'column', height: '100vh',
+      background: 'var(--background)', color: 'var(--foreground)',
+      transition: 'background 0.3s, color 0.3s',
+    }}>
 
       {/* ── Header ── */}
       <header
@@ -319,7 +333,7 @@ export default function ChatPage() {
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '0 20px',
           height: 60,
-          background: 'rgba(2,8,23,0.95)',
+          background: 'var(--nav-bg)',
           backdropFilter: 'blur(20px)',
           borderBottom: '1px solid rgba(99,102,241,0.12)',
         }}
@@ -330,17 +344,17 @@ export default function ChatPage() {
             to="/"
             style={{
               display: 'flex', alignItems: 'center', gap: 4,
-              fontSize: 12, color: '#475569', textDecoration: 'none',
+              fontSize: 12, color: 'var(--muted-foreground)', textDecoration: 'none',
               padding: '4px 8px', borderRadius: 8,
               transition: 'all 0.2s',
             }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#818cf8'; e.currentTarget.style.background = 'rgba(99,102,241,0.1)' }}
-            onMouseLeave={e => { e.currentTarget.style.color = '#475569'; e.currentTarget.style.background = 'transparent' }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.background = 'rgba(99,102,241,0.1)' }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted-foreground)'; e.currentTarget.style.background = 'transparent' }}
           >
             ← Back
           </Link>
 
-          <div style={{ width: 1, height: 20, background: '#1e293b' }} />
+          <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div
@@ -377,12 +391,33 @@ export default function ChatPage() {
               fontSize: 11, padding: '4px 12px', borderRadius: 100,
               background: 'rgba(99,102,241,0.1)',
               border: '1px solid rgba(99,102,241,0.2)',
-              color: '#818cf8',
+              color: 'var(--accent)',
               display: 'flex', alignItems: 'center', gap: 4,
             }}
           >
             ⚡ Streaming
           </div>
+
+          {/* Theme toggle */}
+          <button
+            onClick={() => setTheme(isDark ? 'light' : 'dark')}
+            title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            style={{
+              width: 34, height: 34, borderRadius: 9,
+              border: '1px solid rgba(99,102,241,0.25)',
+              background: isDark ? 'rgba(99,102,241,0.1)' : 'rgba(245,158,11,0.1)',
+              color: isDark ? '#a5b4fc' : '#f59e0b',
+              cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 15,
+              transition: 'all 0.25s',
+              flexShrink: 0,
+            }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1) rotate(15deg)'; e.currentTarget.style.borderColor = 'rgba(99,102,241,0.5)' }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1) rotate(0deg)'; e.currentTarget.style.borderColor = 'rgba(99,102,241,0.25)' }}
+          >
+            {isDark ? '☀️' : '🌙'}
+          </button>
 
           <button
             onClick={clearChat}
@@ -419,7 +454,7 @@ export default function ChatPage() {
           {/* Suggestion chips */}
           {showSuggestions && (
             <div style={{ marginTop: 8, marginBottom: 24, animation: 'fadeInUp 0.4s ease' }}>
-              <p style={{ fontSize: 11, color: '#334155', textAlign: 'center', marginBottom: 12, letterSpacing: 0.5, textTransform: 'uppercase' }}>
+              <p style={{ fontSize: 11, color: 'var(--section-label)', textAlign: 'center', marginBottom: 12, letterSpacing: 0.5, textTransform: 'uppercase' }}>
                 Try asking
               </p>
               <div
@@ -436,22 +471,22 @@ export default function ChatPage() {
                     style={{
                       display: 'flex', alignItems: 'center', gap: 8,
                       padding: '10px 14px', borderRadius: 12,
-                      background: 'rgba(15,23,42,0.8)',
-                      border: '1px solid rgba(99,102,241,0.1)',
-                      color: '#94a3b8', fontSize: 12,
+                      background: 'var(--card-bg)',
+                      border: '1px solid var(--card-border)',
+                      color: 'var(--muted-foreground)', fontSize: 12,
                       textAlign: 'left', cursor: 'pointer',
                       transition: 'all 0.2s',
                     }}
                     onMouseEnter={e => {
                       e.currentTarget.style.borderColor = 'rgba(99,102,241,0.4)'
-                      e.currentTarget.style.color = '#e2e8f0'
+                      e.currentTarget.style.color = 'var(--foreground)'
                       e.currentTarget.style.background = 'rgba(99,102,241,0.08)'
                       e.currentTarget.style.transform = 'scale(1.02)'
                     }}
                     onMouseLeave={e => {
-                      e.currentTarget.style.borderColor = 'rgba(99,102,241,0.1)'
-                      e.currentTarget.style.color = '#94a3b8'
-                      e.currentTarget.style.background = 'rgba(15,23,42,0.8)'
+                      e.currentTarget.style.borderColor = 'var(--card-border)'
+                      e.currentTarget.style.color = 'var(--muted-foreground)'
+                      e.currentTarget.style.background = 'var(--card-bg)'
                       e.currentTarget.style.transform = 'scale(1)'
                     }}
                   >
@@ -493,7 +528,7 @@ export default function ChatPage() {
         style={{
           flexShrink: 0,
           padding: '12px 16px 16px',
-          background: 'rgba(2,8,23,0.95)',
+          background: 'var(--nav-bg)',
           backdropFilter: 'blur(20px)',
           borderTop: '1px solid rgba(99,102,241,0.1)',
         }}
@@ -507,13 +542,13 @@ export default function ChatPage() {
             gap: 10,
             padding: '8px 8px 8px 16px',
             borderRadius: 18,
-            background: 'rgba(15,23,42,0.9)',
-            border: '1px solid rgba(99,102,241,0.2)',
-            boxShadow: '0 4px 30px rgba(0,0,0,0.3)',
+            background: 'var(--card-bg)',
+            border: '1px solid var(--chat-border)',
+            boxShadow: '0 4px 30px rgba(0,0,0,0.15)',
             transition: 'border-color 0.2s',
           }}
           onFocusCapture={e => e.currentTarget.style.borderColor = 'rgba(99,102,241,0.5)'}
-          onBlurCapture={e => e.currentTarget.style.borderColor = 'rgba(99,102,241,0.2)'}
+          onBlurCapture={e => e.currentTarget.style.borderColor = 'var(--chat-border)'}
         >
           <textarea
             ref={textareaRef}
@@ -530,11 +565,11 @@ export default function ChatPage() {
               outline: 'none',
               resize: 'none',
               fontSize: 14,
-              color: '#e2e8f0',
+              color: 'var(--foreground)',
               lineHeight: 1.65,
               padding: '6px 0',
               maxHeight: 120,
-              caretColor: '#6366f1',
+              caretColor: 'var(--primary)',
               fontFamily: "'Instrument Sans', sans-serif",
             }}
             onInput={e => {
@@ -552,9 +587,9 @@ export default function ChatPage() {
               background:
                 input.trim() && !isLoading
                   ? 'linear-gradient(135deg,#6366f1,#8b5cf6)'
-                  : 'rgba(30,41,59,0.8)',
+                  : 'var(--muted)',
               border: 'none',
-              color: input.trim() && !isLoading ? '#fff' : '#334155',
+              color: input.trim() && !isLoading ? '#fff' : 'var(--muted-foreground)',
               fontSize: 16,
               cursor: input.trim() && !isLoading ? 'pointer' : 'not-allowed',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -583,7 +618,7 @@ export default function ChatPage() {
           </button>
         </div>
 
-        <p style={{ textAlign: 'center', fontSize: 10, color: '#1e293b', marginTop: 8 }}>
+        <p style={{ textAlign: 'center', fontSize: 10, color: 'var(--muted-foreground)', marginTop: 8, opacity: 0.5 }}>
           Enter to send · Shift+Enter for new line
         </p>
       </div>

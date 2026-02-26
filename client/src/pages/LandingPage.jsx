@@ -2,6 +2,55 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getHealth } from '../lib/api'
 
+// ─── Scroll-reveal hook ───────────────────────────────────────────────────────
+function useScrollReveal(options = {}) {
+  const ref = useRef(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { el.classList.add('in-view'); obs.unobserve(el) } },
+      { threshold: 0.15, ...options }
+    )
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+  return ref
+}
+
+// ─── Star field ───────────────────────────────────────────────────────────────
+const STARS = Array.from({ length: 80 }, (_, i) => ({
+  id: i,
+  x: Math.random() * 100,
+  y: Math.random() * 100,
+  size: Math.random() * 2 + 0.5,
+  delay: Math.random() * 4,
+  duration: 2 + Math.random() * 3,
+}))
+
+function StarField() {
+  return (
+    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+      {STARS.map(s => (
+        <div
+          key={s.id}
+          style={{
+            position: 'absolute',
+            left: `${s.x}%`,
+            top: `${s.y}%`,
+            width: s.size,
+            height: s.size,
+            borderRadius: '50%',
+            background: '#fff',
+            opacity: 0.15,
+            animation: `twinkle ${s.duration}s ease-in-out ${s.delay}s infinite`,
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
 const FEATURES = [
   {
     emoji: '❓',
@@ -419,6 +468,134 @@ function Orb({ style }) {
   )
 }
 
+// ─── Animated sub-components for scroll-reveal ─────────────────────────────────
+function AnimatedStep({ step, i, total }) {
+  const ref = useScrollReveal()
+  return (
+    <div
+      ref={ref}
+      className="reveal-up"
+      style={{
+        flex: 1, display: 'flex', flexDirection: 'column',
+        alignItems: 'center', position: 'relative', padding: '0 12px',
+        animationDelay: `${i * 0.15}s`,
+      }}
+    >
+      {/* Connecting line */}
+      {i < total - 1 && (
+        <div style={{
+          position: 'absolute', top: 36,
+          left: 'calc(50% + 36px)', right: 'calc(-50% + 36px)',
+          height: 1,
+          background: 'linear-gradient(90deg, rgba(99,102,241,0.4), rgba(99,102,241,0.1))',
+          borderTop: '1px dashed rgba(99,102,241,0.3)',
+        }} />
+      )}
+      {/* Icon circle */}
+      <div style={{
+        width: 72, height: 72, borderRadius: '50%',
+        background: `${step.accent}15`, border: `1px solid ${step.accent}40`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 28, marginBottom: 20, position: 'relative', zIndex: 1,
+        boxShadow: `0 0 24px ${step.accent}20`, flexShrink: 0,
+      }}>
+        {step.icon}
+        <div style={{
+          position: 'absolute', top: -4, right: -4,
+          width: 22, height: 22, borderRadius: '50%',
+          background: step.accent,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 10, fontWeight: 700, color: '#020817',
+        }}>{i + 1}</div>
+      </div>
+      <h3 style={{
+        fontFamily: "'Instrument Serif', Georgia, serif",
+        fontSize: 16, fontWeight: 400, color: '#f1f5f9',
+        textAlign: 'center', marginBottom: 10, letterSpacing: '-0.2px',
+      }}>{step.title}</h3>
+      <p style={{ fontSize: 13, color: '#475569', textAlign: 'center', lineHeight: 1.7 }}>
+        {step.desc}
+      </p>
+    </div>
+  )
+}
+
+function AnimatedFeatureCard({ f, fi }) {
+  const ref = useScrollReveal()
+  return (
+    <div
+      ref={ref}
+      className="reveal-up"
+      style={{
+        padding: '28px 24px', borderRadius: 20,
+        background: 'rgba(15,23,42,0.8)',
+        border: '1px solid rgba(255,255,255,0.05)',
+        cursor: 'default', transition: 'all 0.25s',
+        animationDelay: `${fi * 0.12}s`,
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.transform = 'translateY(-6px)'
+        e.currentTarget.style.boxShadow = `0 24px 60px ${f.accent}35`
+        e.currentTarget.style.borderColor = `${f.accent}50`
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.transform = 'translateY(0)'
+        e.currentTarget.style.boxShadow = 'none'
+        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'
+      }}
+    >
+      <div style={{ fontSize: 32, marginBottom: 14 }}>{f.emoji}</div>
+      <div style={{
+        display: 'inline-flex', alignItems: 'center',
+        fontSize: 10, padding: '2px 8px', borderRadius: 20,
+        background: `${f.accent}18`, color: f.accent,
+        fontWeight: 600, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5,
+      }}>{f.tag}</div>
+      <h3 style={{
+        fontFamily: "'Instrument Serif', Georgia, serif",
+        fontSize: 17, fontWeight: 700, marginBottom: 8, color: '#f1f5f9',
+      }}>{f.title}</h3>
+      <p style={{ fontSize: 13, color: '#64748b', lineHeight: 1.7 }}>{f.desc}</p>
+    </div>
+  )
+}
+
+function StatsStrip() {
+  const ref = useScrollReveal()
+  return (
+    <div
+      ref={ref}
+      className="reveal-scale"
+      style={{
+        maxWidth: 800, margin: '0 auto',
+        display: 'grid', gridTemplateColumns: 'repeat(4,1fr)',
+        gap: 2,
+        background: 'rgba(99,102,241,0.08)',
+        border: '1px solid rgba(99,102,241,0.15)',
+        borderRadius: 20, overflow: 'hidden',
+      }}
+    >
+      {STATS.map((s, i) => (
+        <div key={s.label} style={{
+          padding: '28px 0', textAlign: 'center',
+          borderRight: i < 3 ? '1px solid rgba(99,102,241,0.12)' : 'none',
+        }}>
+          <div style={{
+            fontFamily: "'Instrument Serif', Georgia, serif",
+            fontSize: 32, fontWeight: 800,
+            background: 'linear-gradient(135deg,#6366f1,#a78bfa)',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text', marginBottom: 4,
+          }}>{s.value}</div>
+          <div style={{ fontSize: 12, color: '#475569', textTransform: 'uppercase', letterSpacing: 1 }}>
+            {s.label}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ─── Chat preview ─────────────────────────────────────────────────────────────
 function MinichatPreview() {
   return (
@@ -534,9 +711,169 @@ function MinichatPreview() {
   )
 }
 
+// ─── Large footer component ──────────────────────────────────────────────────
+function BigFooter() {
+  const FOOTER_LINKS = [
+    {
+      heading: 'Product',
+      links: [
+        { label: 'Chat', href: '/chat' },
+        { label: 'Features', href: '#features' },
+        { label: 'How it works', href: '#how' },
+        { label: 'API Docs', href: 'http://localhost:8000/docs', external: true },
+      ],
+    },
+    {
+      heading: 'Pipelines',
+      links: [
+        { label: 'FAQ Semantic Search', href: '/chat' },
+        { label: 'SQL Product Search', href: '/chat' },
+        { label: 'Contextual Follow-up', href: '/chat' },
+        { label: 'LLM Fallback', href: '/chat' },
+      ],
+    },
+    {
+      heading: 'Tech Stack',
+      links: [
+        { label: 'FastAPI + LiteLLM', href: '#' },
+        { label: 'ChromaDB + VoyageAI', href: '#' },
+        { label: 'React + Vite', href: '#' },
+        { label: 'Semantic Router', href: '#' },
+      ],
+    },
+  ]
+
+  return (
+    <footer style={{
+      borderTop: '1px solid var(--footer-divider)',
+      background: 'var(--background)',
+      color: 'var(--foreground)',
+      transition: 'background 0.3s, color 0.3s',
+    }}>
+      {/* Top section — tagline + link columns */}
+      <div style={{
+        maxWidth: 1100, margin: '0 auto',
+        padding: '72px 24px 48px',
+        display: 'grid',
+        gridTemplateColumns: '1fr repeat(3, auto)',
+        gap: '40px 64px',
+        alignItems: 'start',
+      }}>
+        {/* Tagline */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: 9,
+              background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 14,
+            }}>🛍</div>
+            <span style={{ fontWeight: 700, fontSize: 15 }}>FlipAssist</span>
+          </div>
+          <p style={{ fontSize: 13, color: 'var(--footer-text)', lineHeight: 1.8, maxWidth: 220 }}>
+            E-commerce Semantic RAG — your products, questions, and follow-ups answered by the right AI pipeline.
+          </p>
+        </div>
+
+        {/* Link columns */}
+        {FOOTER_LINKS.map((col) => (
+          <div key={col.heading}>
+            <p style={{
+              fontSize: 11, fontWeight: 700, letterSpacing: 1.5,
+              textTransform: 'uppercase', color: 'var(--footer-link)',
+              marginBottom: 18,
+            }}>{col.heading}</p>
+            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {col.links.map((lnk) => (
+                <li key={lnk.label}>
+                  {lnk.external ? (
+                    <a
+                      href={lnk.href}
+                      target="_blank" rel="noreferrer"
+                      style={{ fontSize: 13, color: 'var(--footer-text)', textDecoration: 'none', transition: 'color 0.2s' }}
+                      onMouseEnter={e => e.currentTarget.style.color = 'var(--primary)'}
+                      onMouseLeave={e => e.currentTarget.style.color = 'var(--footer-text)'}
+                    >{lnk.label} ↗</a>
+                  ) : (
+                    <Link
+                      to={lnk.href}
+                      style={{ fontSize: 13, color: 'var(--footer-text)', textDecoration: 'none', transition: 'color 0.2s' }}
+                      onMouseEnter={e => e.currentTarget.style.color = 'var(--primary)'}
+                      onMouseLeave={e => e.currentTarget.style.color = 'var(--footer-text)'}
+                    >{lnk.label}</Link>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+
+      {/* Huge brand wordmark */}
+      <div style={{
+        overflow: 'hidden',
+        padding: '0 24px',
+        lineHeight: 0.85,
+        userSelect: 'none',
+      }}>
+        <p
+          style={{
+            fontFamily: "'Instrument Serif', Georgia, serif",
+            fontSize: 'clamp(72px, 14vw, 160px)',
+            fontWeight: 400,
+            letterSpacing: '-4px',
+            color: 'var(--footer-brand)',
+            transition: 'color 0.3s',
+            margin: 0,
+          }}
+        >
+          FlipAssist
+        </p>
+      </div>
+
+      {/* Bottom meta bar */}
+      <div style={{
+        maxWidth: 1100, margin: '0 auto',
+        padding: '24px 24px 32px',
+        display: 'flex', alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap', gap: 12,
+        borderTop: '1px solid var(--footer-divider)',
+        fontSize: 12, color: 'var(--footer-link)',
+      }}>
+        <span>© {new Date().getFullYear()} FlipAssist — E-commerce Semantic RAG</span>
+        <div style={{ display: 'flex', gap: 24 }}>
+          {[
+            { label: 'API Docs', href: 'http://localhost:8000/docs', external: true },
+            { label: 'GitHub', href: '#', external: true },
+          ].map(lnk => (
+            <a
+              key={lnk.label}
+              href={lnk.href}
+              target={lnk.external ? '_blank' : undefined}
+              rel={lnk.external ? 'noreferrer' : undefined}
+              style={{ color: 'var(--footer-link)', textDecoration: 'none', transition: 'color 0.2s' }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--primary)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--footer-link)'}
+            >{lnk.label}</a>
+          ))}
+        </div>
+      </div>
+    </footer>
+  )
+}
+
 export default function LandingPage() {
   const [apiOnline, setApiOnline] = useState(null)
   const [scrolled, setScrolled] = useState(false)
+  const [theme, setTheme] = useState(() => {
+    try { return localStorage.getItem('flip-theme') || 'dark' } catch { return 'dark' }
+  })
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    try { localStorage.setItem('flip-theme', theme) } catch {}
+  }, [theme])
 
   useEffect(() => {
     getHealth()
@@ -550,8 +887,10 @@ export default function LandingPage() {
     return () => window.removeEventListener('scroll', handler)
   }, [])
 
+  const isDark = theme === 'dark'
+
   return (
-    <div style={{ minHeight: '100vh', background: '#020817', color: '#e2e8f0', overflowX: 'hidden' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--background)', color: 'var(--foreground)', overflowX: 'hidden', transition: 'background 0.3s, color 0.3s' }}>
 
       {/* ── Navbar ── */}
       <nav
@@ -562,7 +901,7 @@ export default function LandingPage() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          background: scrolled ? 'rgba(2,8,23,0.92)' : 'transparent',
+          background: scrolled ? 'var(--nav-bg)' : 'transparent',
           backdropFilter: scrolled ? 'blur(20px)' : 'none',
           borderBottom: scrolled ? '1px solid rgba(99,102,241,0.12)' : 'none',
           transition: 'all 0.3s',
@@ -577,21 +916,42 @@ export default function LandingPage() {
               fontSize: 16,
             }}
           >🛍</div>
-          <span style={{ fontFamily: "'Instrument Sans', sans-serif", fontWeight: 700, fontSize: 17 }}>FlipAssist</span>
+          <span style={{ fontFamily: "'Instrument Sans', sans-serif", fontWeight: 700, fontSize: 17, color: 'var(--foreground)' }}>FlipAssist</span>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {/* API status */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#64748b' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted-foreground)' }}>
             <div
               style={{
                 width: 7, height: 7, borderRadius: '50%',
-                background: apiOnline === null ? '#64748b' : apiOnline ? '#22c55e' : '#ef4444',
+                background: apiOnline === null ? 'var(--muted-foreground)' : apiOnline ? '#22c55e' : '#ef4444',
                 boxShadow: apiOnline ? '0 0 8px rgba(34,197,94,0.7)' : undefined,
               }}
             />
             <span>{apiOnline === null ? 'Connecting…' : apiOnline ? 'API Online' : 'API Offline'}</span>
           </div>
+
+          {/* Theme toggle */}
+          <button
+            onClick={() => setTheme(isDark ? 'light' : 'dark')}
+            title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            style={{
+              width: 36, height: 36, borderRadius: 10,
+              border: '1px solid rgba(99,102,241,0.25)',
+              background: isDark ? 'rgba(99,102,241,0.1)' : 'rgba(245,158,11,0.1)',
+              color: isDark ? '#a5b4fc' : '#f59e0b',
+              cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 16,
+              transition: 'all 0.25s',
+              flexShrink: 0,
+            }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1) rotate(15deg)'; e.currentTarget.style.borderColor = 'rgba(99,102,241,0.5)' }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1) rotate(0deg)'; e.currentTarget.style.borderColor = 'rgba(99,102,241,0.25)' }}
+          >
+            {isDark ? '☀️' : '🌙'}
+          </button>
 
           <Link
             to="/chat"
@@ -623,10 +983,11 @@ export default function LandingPage() {
           padding: '100px 24px 60px',
         }}
       >
-        {/* Background orbs */}
-        <Orb style={{ top: '10%', left: '5%', width: 500, height: 500, background: 'radial-gradient(circle, rgba(99,102,241,0.18), transparent 70%)' }} />
-        <Orb style={{ bottom: '10%', right: '5%', width: 400, height: 400, background: 'radial-gradient(circle, rgba(6,182,212,0.12), transparent 70%)' }} />
-        <Orb style={{ top: '40%', left: '40%', width: 300, height: 300, background: 'radial-gradient(circle, rgba(139,92,246,0.1), transparent 70%)' }} />
+        {/* Background orbs + star field */}
+        <StarField />
+        <Orb style={{ top: '10%', left: '5%', width: 500, height: 500, background: 'radial-gradient(circle, rgba(99,102,241,0.18), transparent 70%)', animation: 'orbDrift1 18s ease-in-out infinite' }} />
+        <Orb style={{ bottom: '10%', right: '5%', width: 400, height: 400, background: 'radial-gradient(circle, rgba(6,182,212,0.12), transparent 70%)', animation: 'orbDrift2 14s ease-in-out infinite' }} />
+        <Orb style={{ top: '40%', left: '40%', width: 300, height: 300, background: 'radial-gradient(circle, rgba(139,92,246,0.1), transparent 70%)', animation: 'orbDrift3 10s ease-in-out infinite' }} />
 
         <div
           style={{
@@ -670,15 +1031,7 @@ export default function LandingPage() {
             }}
           >
             Shop smarter with{' '}
-            <span
-              style={{
-                background: 'linear-gradient(135deg,#6366f1 0%,#a78bfa 50%,#06b6d4 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-                fontStyle: 'italic',
-              }}
-            >
+            <span className="animated-gradient-text" style={{ fontStyle: 'italic' }}>
               AI search
             </span>
           </h1>
@@ -696,17 +1049,17 @@ export default function LandingPage() {
           >
             <Link
               to="/chat"
+              className="cta-pulse"
               style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 padding: '14px 32px', borderRadius: 16,
                 background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
                 color: '#fff', fontSize: 15, fontWeight: 700,
                 textDecoration: 'none',
-                boxShadow: '0 8px 32px rgba(99,102,241,0.45)',
                 transition: 'all 0.2s',
               }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(99,102,241,0.6)' }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(99,102,241,0.45)' }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.06)' }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
             >
               Start Chatting →
             </Link>
@@ -745,48 +1098,7 @@ export default function LandingPage() {
 
       {/* ── Stats strip ── */}
       <section style={{ padding: '0 24px 80px' }}>
-        <div
-          style={{
-            maxWidth: 800,
-            margin: '0 auto',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4,1fr)',
-            gap: 2,
-            background: 'rgba(99,102,241,0.08)',
-            border: '1px solid rgba(99,102,241,0.15)',
-            borderRadius: 20,
-            overflow: 'hidden',
-          }}
-        >
-          {STATS.map((s, i) => (
-            <div
-              key={s.label}
-              style={{
-                padding: '28px 0',
-                textAlign: 'center',
-                borderRight: i < 3 ? '1px solid rgba(99,102,241,0.12)' : 'none',
-              }}
-            >
-              <div
-                style={{
-                  fontFamily: "'Instrument Serif', Georgia, serif",
-                  fontSize: 32,
-                  fontWeight: 800,
-                  background: 'linear-gradient(135deg,#6366f1,#a78bfa)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text',
-                  marginBottom: 4,
-                }}
-              >
-                {s.value}
-              </div>
-              <div style={{ fontSize: 12, color: '#475569', textTransform: 'uppercase', letterSpacing: 1 }}>
-                {s.label}
-              </div>
-            </div>
-          ))}
-        </div>
+        <StatsStrip />
       </section>
 
       {/* ── How it works ── */}
@@ -814,93 +1126,7 @@ export default function LandingPage() {
           {/* Steps */}
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0, position: 'relative' }}>
             {HOW_STEPS.map((step, i) => (
-              <div
-                key={step.num}
-                style={{
-                  flex: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  position: 'relative',
-                  padding: '0 12px',
-                }}
-              >
-                {/* Connecting line (not after last) */}
-                {i < HOW_STEPS.length - 1 && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: 36,
-                      left: 'calc(50% + 36px)',
-                      right: 'calc(-50% + 36px)',
-                      height: 1,
-                      background: 'linear-gradient(90deg, rgba(99,102,241,0.4), rgba(99,102,241,0.1))',
-                      borderTop: '1px dashed rgba(99,102,241,0.3)',
-                    }}
-                  />
-                )}
-
-                {/* Icon circle */}
-                <div
-                  style={{
-                    width: 72,
-                    height: 72,
-                    borderRadius: '50%',
-                    background: `${step.accent}15`,
-                    border: `1px solid ${step.accent}40`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 28,
-                    marginBottom: 20,
-                    position: 'relative',
-                    zIndex: 1,
-                    boxShadow: `0 0 24px ${step.accent}20`,
-                    flexShrink: 0,
-                  }}
-                >
-                  {step.icon}
-                  {/* Step number badge */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: -4, right: -4,
-                      width: 22, height: 22,
-                      borderRadius: '50%',
-                      background: step.accent,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 10, fontWeight: 700, color: '#020817',
-                    }}
-                  >
-                    {i + 1}
-                  </div>
-                </div>
-
-                {/* Text */}
-                <h3
-                  style={{
-                    fontFamily: "'Instrument Serif', Georgia, serif",
-                    fontSize: 16,
-                    fontWeight: 400,
-                    color: '#f1f5f9',
-                    textAlign: 'center',
-                    marginBottom: 10,
-                    letterSpacing: '-0.2px',
-                  }}
-                >
-                  {step.title}
-                </h3>
-                <p
-                  style={{
-                    fontSize: 13,
-                    color: '#475569',
-                    textAlign: 'center',
-                    lineHeight: 1.7,
-                  }}
-                >
-                  {step.desc}
-                </p>
-              </div>
+              <AnimatedStep key={step.num} step={step} i={i} total={HOW_STEPS.length} />
             ))}
           </div>
         </div>
@@ -937,57 +1163,13 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div
-            style={{
+          <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
               gap: 20,
-            }}
-          >
-            {FEATURES.map((f) => (
-              <div
-                key={f.title}
-                style={{
-                  padding: '28px 24px',
-                  borderRadius: 20,
-                  background: 'rgba(15,23,42,0.8)',
-                  border: '1px solid rgba(255,255,255,0.05)',
-                  cursor: 'default',
-                  transition: 'all 0.25s',
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.transform = 'translateY(-4px)'
-                  e.currentTarget.style.boxShadow = `0 20px 60px ${f.accent}30`
-                  e.currentTarget.style.borderColor = `${f.accent}40`
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.transform = 'translateY(0)'
-                  e.currentTarget.style.boxShadow = 'none'
-                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'
-                }}
-              >
-                <div style={{ fontSize: 32, marginBottom: 14 }}>{f.emoji}</div>
-                <div
-                  style={{
-                    display: 'inline-flex', alignItems: 'center',
-                    fontSize: 10, padding: '2px 8px', borderRadius: 20,
-                    background: `${f.accent}18`, color: f.accent,
-                    fontWeight: 600, marginBottom: 12, textTransform: 'uppercase',
-                    letterSpacing: 0.5,
-                  }}
-                >
-                  {f.tag}
-                </div>
-                <h3
-                  style={{
-                    fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 17,
-                    fontWeight: 700, marginBottom: 8, color: '#f1f5f9',
-                  }}
-                >
-                  {f.title}
-                </h3>
-                <p style={{ fontSize: 13, color: '#64748b', lineHeight: 1.7 }}>{f.desc}</p>
-              </div>
+            }}>
+            {FEATURES.map((f, fi) => (
+              <AnimatedFeatureCard key={f.title} f={f} fi={fi} />
             ))}
           </div>
         </div>
@@ -1256,34 +1438,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Footer ── */}
-      <footer
-        style={{
-          borderTop: '1px solid rgba(255,255,255,0.05)',
-          padding: '24px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: 12,
-          maxWidth: 1100,
-          margin: '0 auto',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#334155' }}>
-          <span style={{ fontSize: 16 }}>🛍</span>
-          FlipAssist · E-commerce Semantic RAG
-        </div>
-        <a
-          href="http://localhost:8000/docs"
-          target="_blank"
-          rel="noreferrer"
-          style={{ fontSize: 12, color: '#475569', textDecoration: 'none' }}
-          onMouseEnter={e => e.currentTarget.style.color = '#818cf8'}
-          onMouseLeave={e => e.currentTarget.style.color = '#475569'}
-        >
-          API Docs ↗
-        </a>
-      </footer>
+      <BigFooter />
     </div>
   )
 }
