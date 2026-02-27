@@ -4,6 +4,10 @@ app/.env
 node_modules/
 
 chroma_db
+Latex
+report.pdf
+Latex.zip
+CS21B2045.pdf
 
 # Ignore all CSV files (anywhere in the project)
 *.csv
