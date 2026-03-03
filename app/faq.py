@@ -88,6 +88,7 @@ async def general_llm_fallback(
     If there is no history context, return the canned out-of-scope message
     immediately without calling the LLM.
     """
+    print("HISTORY:", history)
     if not history:
         return _OUT_OF_SCOPE
 

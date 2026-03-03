@@ -50,6 +50,32 @@ sql = Route(
         "What are the cheapest options available?",
         "I am looking for a gift under 2000",
         "Show me products with rating above 4",
+        "Top rated shoe from each brand",
+        "Average price of Nike shoes",
+        "Cheapest shoes in the database",
+        "Count of Adidas shoes under 5000",
+        "Show me the best rated items by company",
+        "Compare Nike and Adidas prices",
+        "Which brand has the highest average rating?",
+        "Show me something that isn't Nike or Puma",
+        "Find the most discounted shoe that is also rated above 4.5",
+        "Are there any formal shoes that are cheaper than the sports shoes?",
+        "How many total products are in the store?",
+        "What is the most expensive item you have?",
+        "Which company has the most shoes listed?",
+        "Show me the distribution of prices",
+        "What's the best deal in the formal category?",
+        "Which items have the biggest price drop?",
+        "Show me shoes with more than 30% off",
+        "Are there any clearance deals?",
+        "Find the best value for money deals",
+        "What is the most expensive shoe you have?",
+        "Show me shoes between 2000 and 5000 rupees",
+        "I have a budget of 3000, what can I get?",
+        "Sort the list from cheapest to priciest",
+        "How many different brands do you sell?",
+        "Is Nike more expensive than Adidas on average?",
+        "List all shoes made by Puma",
     ],
 )
 
@@ -81,6 +107,12 @@ contextual = Route(
         "Is that a good shoe?",
         "Are those running shoes?",
         "How is that compared to the others?",
+        "The cheapest one among the above mentioned shoes is",
+        "The most expensive one among the above mentioned shoes is",
+        "The highest rated one among the above mentioned shoes is",
+        "The lowest rated one among the above mentioned shoes is",
+        "The highest discount one among the above mentioned shoes is",
+        "The lowest discount one among the above mentioned shoes is",
     ],
 )
 
@@ -93,3 +125,4 @@ if __name__ == "__main__":
     print(router("Pink Puma Shoes in range of 5000 to 10000").name)
     print(router("Is this a sports shoe?").name)
     print(router("Which one has the highest discount?").name)
+    
