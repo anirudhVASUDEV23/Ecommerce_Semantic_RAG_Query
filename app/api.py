@@ -15,8 +15,9 @@ from slowapi.util import get_remote_address
 from faq import (
     faq_chain, faq_chain_stream, ingest_faq_data,
     general_llm_fallback, general_llm_fallback_stream,
-    chroma_client, collection_name_faq,
+    _index as pinecone_index, _NAMESPACE as pinecone_namespace,
 )
+from config import settings
 from router import router
 from sql import sql_chain
 
@@ -159,14 +160,15 @@ async def admin_stats():
         if now - s["last_active"] <= SESSION_TTL
     ]
 
-    # ── ChromaDB ──────────────────────────────────────────────────────────────
+    # ── Pinecone ──────────────────────────────────────────────────────────────────
     try:
-        collection = chroma_client.get_collection(collection_name_faq)
-        faq_doc_count = collection.count()
-        chroma_status = "ok"
+        stats = pinecone_index.describe_index_stats()
+        ns = stats.get("namespaces", {}).get(pinecone_namespace, {})
+        faq_doc_count = ns.get("vector_count", 0)
+        pinecone_status = "ok"
     except Exception as e:
         faq_doc_count = None
-        chroma_status = str(e)
+        pinecone_status = str(e)
 
     # ── SQLite ────────────────────────────────────────────────────────────────
     db_path = Path(__file__).parent / "db.sqlite"
@@ -189,9 +191,9 @@ async def admin_stats():
             "total_stored": len(SESSION_STORE),
             "ttl_minutes": SESSION_TTL // 60,
         },
-        "chromadb": {
-            "status": chroma_status,
-            "collection": collection_name_faq,
+        "pinecone": {
+            "status": pinecone_status,
+            "index": settings.PINECONE_INDEX_NAME if hasattr(settings, 'PINECONE_INDEX_NAME') else "faqembeddings",
             "faq_documents": faq_doc_count,
         },
         "sqlite": {

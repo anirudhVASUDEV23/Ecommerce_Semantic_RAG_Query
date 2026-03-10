@@ -1,63 +1,30 @@
 import asyncio
-import pandas as pd
-from pathlib import Path
+import logging
 from typing import AsyncGenerator
 
-import chromadb
-from chromadb.utils import embedding_functions
 from groq import AsyncGroq
+from pinecone import Pinecone
 
 from config import settings
 
+logger = logging.getLogger(__name__)
+
 GROQ_MODEL = settings.GROQ_MODEL
 
-# ── ChromaDB (persistent) ─────────────────────────────────────────────────────
-chroma_db_path = settings.CHROMA_DB_PATH
-chroma_client = chromadb.PersistentClient(path=chroma_db_path)
-collection_name_faq = "faqs"
-groq_client = AsyncGroq(api_key=settings.GROQ_API_KEY)  # explicit key from config
+# ── Pinecone client & index ───────────────────────────────────────────────────
+_pc = Pinecone(api_key=settings.PINECONE_API_KEY)
+# Connect directly to the index host for lowest latency
+_index = _pc.Index(host=settings.PINECONE_INDEX_HOST)
 
-ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
-)
+# Namespace used in all upsert/search calls
+_NAMESPACE = "_default_"
+
+# Groq client for LLM calls
+groq_client = AsyncGroq(api_key=settings.GROQ_API_KEY)
 
 _SYSTEM_PROMPT = "You are a helpful e-commerce customer support assistant."
 
-
-# ── Ingestion ─────────────────────────────────────────────────────────────────
-def ingest_faq_data(path: str | Path) -> None:
-    """Load FAQ CSV into persistent ChromaDB. No-op if collection already exists."""
-    existing = [c.name for c in chroma_client.list_collections()]
-    if collection_name_faq not in existing:
-        print("Ingesting FAQ data to ChromaDB...")
-        collection = chroma_client.get_or_create_collection(
-            name=collection_name_faq,
-            embedding_function=ef,
-        )
-        df = pd.read_csv(path)
-        docs = df["question"].to_list()
-        metadata = [{"answer": ans} for ans in df["answer"].to_list()]
-        ids = [f"id_{i}" for i in range(len(docs))]
-        collection.add(documents=docs, metadatas=metadata, ids=ids)
-        print(f"Ingested {len(docs)} FAQs.")
-    else:
-        print(f"Collection '{collection_name_faq}' already exists — skipping ingestion.")
-
-
-# ── Retrieval ─────────────────────────────────────────────────────────────────
-def _get_relevant_qa_sync(query: str) -> dict:
-    collection = chroma_client.get_collection(
-        collection_name_faq, embedding_function=ef
-    )
-    return collection.query(query_texts=[query], n_results=2)
-
-
-async def get_relevant_qa(query: str) -> dict:
-    """Run ChromaDB query in a thread (ChromaDB is synchronous)."""
-    return await asyncio.to_thread(_get_relevant_qa_sync, query)
-
-
-# ── Out-of-scope canned reply ────────────────────────────────────────────────
+# ── Out-of-scope canned reply ─────────────────────────────────────────────────
 _OUT_OF_SCOPE = (
     "I'm sorry, I don't have information about that. \n\n"
     "I can help you with:\n"
@@ -73,22 +40,80 @@ _FALLBACK_SYSTEM = (
     "Do NOT use any outside knowledge. "
     "Do NOT ask the user for more information or more context. "
     "If the question cannot be answered from the conversation history, "
-    "reply with exactly: \""
+    'reply with exactly: "'
     + _OUT_OF_SCOPE
-    + "\""
+    + '"'
 )
+
+
+# ── Ingestion (called once at startup / on demand) ────────────────────────────
+def ingest_faq_data(path) -> None:
+    """
+    Load FAQ CSV into Pinecone using integrated embeddings.
+    Pinecone's llama-text-embed-v2 model handles embedding server-side.
+    Skip if records already exist in the index.
+    """
+    import pandas as pd
+
+    stats = _index.describe_index_stats()
+    total = stats.get("total_vector_count", 0)
+    # For integrated-embedding indexes the key is namespaces
+    ns_stats = stats.get("namespaces", {})
+    ns_count = ns_stats.get(_NAMESPACE, {}).get("vector_count", 0)
+
+    if ns_count > 0:
+        logger.info(
+            "Pinecone index already has %d records in namespace '%s' — skipping ingestion.",
+            ns_count, _NAMESPACE,
+        )
+        return
+
+    logger.info("Ingesting FAQ data to Pinecone (%s)…", settings.PINECONE_INDEX_NAME)
+    df = pd.read_csv(path)
+
+    # Build records — Pinecone embeds the 'text' field automatically
+    records = [
+        {
+            "id": f"faq_{i}",
+            "text": row["question"],   # field mapped for embedding
+            "answer": row["answer"],   # stored as metadata
+        }
+        for i, row in df.iterrows()
+    ]
+
+    # Upsert in batches of 96 (Pinecone inference limit per call)
+    batch_size = 96
+    for start in range(0, len(records), batch_size):
+        batch = records[start : start + batch_size]
+        _index.upsert_records(_NAMESPACE, batch)
+
+    logger.info("Ingested %d FAQs into Pinecone.", len(records))
+
+
+# ── Retrieval ─────────────────────────────────────────────────────────────────
+def _search_faq_sync(query: str) -> list[dict]:
+    """
+    Search Pinecone using integrated embeddings.
+    Send only text — Pinecone generates the query embedding server-side.
+    """
+    results = _index.search(
+        namespace=_NAMESPACE,
+        query={"inputs": {"text": query}, "top_k": 2},
+        fields=["text", "answer"],
+    )
+    hits = results.get("result", {}).get("hits", [])
+    return [hit.get("fields", {}) for hit in hits]
+
+
+async def get_relevant_qa(query: str) -> list[dict]:
+    """Async wrapper — Pinecone SDK is synchronous."""
+    return await asyncio.to_thread(_search_faq_sync, query)
 
 
 # ── General LLM fallback (uses conversation history only) ────────────────────
 async def general_llm_fallback(
     query: str, history: list[dict] | None = None
 ) -> str:
-    """
-    Answer a follow-up query using only conversation history.
-    If there is no history context, return the canned out-of-scope message
-    immediately without calling the LLM.
-    """
-    print("HISTORY:", history)
     if not history:
         return _OUT_OF_SCOPE
 
@@ -179,8 +204,8 @@ async def generate_answer_stream(
 
 # ── Chains ────────────────────────────────────────────────────────────────────
 async def faq_chain(query: str, history: list[dict] | None = None) -> str:
-    result = await get_relevant_qa(query)
-    context = "".join(r.get("answer", "") for r in result["metadatas"][0])
+    hits = await get_relevant_qa(query)
+    context = "\n".join(h.get("answer", "") for h in hits)
     return await generate_answer(query, context, history)
 
 
@@ -188,13 +213,15 @@ async def faq_chain_stream(
     query: str, history: list[dict] | None = None
 ) -> AsyncGenerator[str, None]:
     """Async generator for streaming FAQ answers."""
-    result = await get_relevant_qa(query)
-    context = "".join(r.get("answer", "") for r in result["metadatas"][0])
+    hits = await get_relevant_qa(query)
+    context = "\n".join(h.get("answer", "") for h in hits)
     async for chunk in generate_answer_stream(query, context, history):
         yield chunk
 
 
 if __name__ == "__main__":
+    from pathlib import Path
+
     faqs_path = Path(__file__).parent / "resources/faq_data.csv"
     ingest_faq_data(faqs_path)
 

@@ -11,8 +11,8 @@ pandas==2.2.3
 # Environment Variables
 python-dotenv==1.1.0
 
-# Vector Store for FAQ (ChromaDB)
-chromadb==1.0.15
+# Vector Store for FAQ (Pinecone)
+pinecone==6.0.2
 
 # Embeddings (used by ChromaDB & SemanticRouter)
 sentence-transformers==5.0.0

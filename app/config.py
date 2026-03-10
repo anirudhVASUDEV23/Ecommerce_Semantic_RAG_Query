@@ -11,7 +11,11 @@ class Settings(BaseSettings):
 
     GROQ_API_KEY: str
     GROQ_MODEL: str
-    CHROMA_DB_PATH: str = str(Path(__file__).parent / "chroma_db")
+
+    # ── Pinecone (FAQ Vector Store) ──────────────────────────────────────────
+    PINECONE_API_KEY: str
+    PINECONE_INDEX_NAME: str = "faqembeddings"
+    PINECONE_INDEX_HOST: str = "https://faqembeddings-noqswio.svc.aped-4627-b74a.pinecone.io"
 
 
 settings = Settings()
