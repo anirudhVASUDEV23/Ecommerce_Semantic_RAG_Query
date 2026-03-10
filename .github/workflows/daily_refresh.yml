@@ -1,0 +1,42 @@
+name: Daily Flipkart Data Refresh
+
+on:
+  schedule:
+    # Runs every day at 02:00 UTC (07:30 IST)
+    - cron: "0 2 * * *"
+  workflow_dispatch:   # Allow manual trigger from GitHub UI
+
+jobs:
+  refresh-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120   # Scraping 1000 product pages takes ~50 min
+
+    steps:
+      # 1. Checkout repo
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Set up Python
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      # 3. Install Chrome (latest stable) + ChromeDriver
+      - name: Install Chrome and ChromeDriver
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      # 4. Install Python dependencies
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install selenium asyncpg python-dotenv
+
+      # 5. Scrape Flipkart and load fresh data into Neon
+      - name: Scrape Flipkart and load into Neon PostgreSQL
+        env:
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: python scrape_to_neon.py

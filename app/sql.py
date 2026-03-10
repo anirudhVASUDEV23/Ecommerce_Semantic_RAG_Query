@@ -1,14 +1,12 @@
-import sqlite3
 import re
 import asyncio
+import asyncpg
 import pandas as pd
 from groq import AsyncGroq
-from pathlib import Path
 from config import settings
 
 GROQ_MODEL = settings.GROQ_MODEL
-db_path = Path(__file__).parent / "db.sqlite"
-client_sql = AsyncGroq(api_key=settings.GROQ_API_KEY)  # explicit key from config
+client_sql = AsyncGroq(api_key=settings.GROQ_API_KEY)
 
 # ── Blocked SQL patterns (safety) ─────────────────────────────────────────────
 _BLOCKED = re.compile(
@@ -32,11 +30,11 @@ total_ratings - integer (total number of ratings for the product)
 
 </schema>
 Make sure whenever you try to search for the brand name, the name can be in any case. 
-So, make sure to use %LIKE% to find the brand in condition. Never use "ILIKE". 
+So, make sure to use ILIKE (PostgreSQL case-insensitive LIKE) to find the brand in condition. Never use plain LIKE for brand/title searches.
 
 IMPORTANT: The 'title' column contains the product name and description (e.g., "Campus Women Running Shoes"). 
-If the user asks for "Ladies shoes", "Running shoes", "Walking shoes", etc., you MUST search the 'title' column using `LIKE %keyword%`.
-Example: For "Ladies shoes", add `title LIKE '%Women%' OR title LIKE '%Ladies%'` to the WHERE clause.
+If the user asks for "Ladies shoes", "Running shoes", "Walking shoes", etc., you MUST search the 'title' column using `ILIKE '%keyword%'`.
+Example: For "Ladies shoes", add `title ILIKE '%Women%' OR title ILIKE '%Ladies%'` to the WHERE clause.
 
 Create a single SQL query for the question provided. 
 The query should have all the fields in SELECT clause (i.e. SELECT *)
@@ -67,15 +65,20 @@ def validate_sql(query: str) -> None:
 
 
 # ── DB ────────────────────────────────────────────────────────────────────────
-def _run_query_sync(query: str) -> pd.DataFrame:
-    validate_sql(query)
-    with sqlite3.connect(db_path) as conn:
-        return pd.read_sql_query(query, conn)
-
-
 async def run_query(query: str) -> pd.DataFrame:
-    """Run a SELECT query against SQLite in a thread (non-blocking)."""
-    return await asyncio.to_thread(_run_query_sync, query)
+    """Run a SELECT query against Neon PostgreSQL (asyncpg)."""
+    validate_sql(query)
+
+    conn = await asyncpg.connect(settings.NEON_DATABASE_URL)
+    try:
+        rows = await conn.fetch(query)
+    finally:
+        await conn.close()
+
+    if not rows:
+        return pd.DataFrame()
+
+    return pd.DataFrame([dict(r) for r in rows])
 
 
 # ── LLM calls ─────────────────────────────────────────────────────────────────
@@ -129,14 +132,12 @@ async def sql_chain(question: str, history: list[dict] | None = None) -> str | l
     context = df.head(5).to_dict(orient="records")
 
     if "product_link" in df.columns:
-        return context  # formatted by the caller (api.py / main.py)
+        return context  # formatted by the caller (api.py)
 
     return await data_comprehension(question, context, history)
 
 
 if __name__ == "__main__":
-    import asyncio
-
     async def _test():
         question = "Give me Puma Shoes with rating higher than 4.5 and more than 30% discount"
         print(await sql_chain(question))

@@ -9,13 +9,16 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    GROQ_API_KEY: str
-    GROQ_MODEL: str
+    GROQ_API_KEY: str = ""
+    GROQ_MODEL: str = "llama-3.3-70b-versatile"
 
     # ── Pinecone (FAQ Vector Store) ──────────────────────────────────────────
     PINECONE_API_KEY: str
     PINECONE_INDEX_NAME: str = "faqembeddings"
     PINECONE_INDEX_HOST: str = "https://faqembeddings-noqswio.svc.aped-4627-b74a.pinecone.io"
+
+    # ── Neon PostgreSQL (Product Database) ───────────────────────────────────
+    NEON_DATABASE_URL: str
 
 
 settings = Settings()
