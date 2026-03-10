@@ -60,11 +60,11 @@ CREATE TABLE IF NOT EXISTS product (
 
 # ── Browser factory ───────────────────────────────────────────────────────────
 def get_driver() -> webdriver.Chrome:
-    """Return a headless Chrome WebDriver."""
+    """Return a headed Chrome WebDriver (runs virtually via Xvfb in CI)."""
     opts = Options()
-    # Use classic --headless (not --headless=new) — Chrome 145 has renderer
-    # crashes with the new headless mode on GitHub Actions Linux runners.
-    opts.add_argument("--headless")
+    
+    # We run purely HEADED to bypass Flipkart bot detection.
+    # On GitHub Actions, `xvfb-run` provides a virtual display server.
     opts.add_argument("--no-sandbox")
     opts.add_argument("--disable-dev-shm-usage")
     opts.add_argument("--disable-gpu")
