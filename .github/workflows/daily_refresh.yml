@@ -2,8 +2,8 @@ name: Daily Flipkart Data Refresh
 
 on:
   schedule:
-    # Runs every day at 02:00 UTC (07:30 IST)
-    - cron: "0 2 * * *"
+    # Runs every day at 07:49 UTC (1:19 PM IST)
+    - cron: "49 7 * * *"
   workflow_dispatch:   # Allow manual trigger from GitHub UI
 
 jobs:
