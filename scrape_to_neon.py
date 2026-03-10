@@ -100,6 +100,17 @@ def collect_product_links(driver: webdriver.Chrome) -> list[str]:
                 raise
             time.sleep(5)
 
+    # NEW: close login popup if it appears
+    try:
+        log.info("Checking for login popup...")
+        close_btn = WebDriverWait(driver, 5).until(
+            EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'✕')]"))
+        )
+        close_btn.click()
+        log.info("✅ Closed Flipkart login popup")
+    except Exception:
+        log.info("No login popup appeared (or already closed).")
+
     # Find search box and submit query
     search_input = WebDriverWait(driver, PAGE_WAIT).until(
         EC.presence_of_element_located((By.CSS_SELECTOR, '[autocomplete="off"]'))
@@ -128,13 +139,31 @@ def collect_product_links(driver: webdriver.Chrome) -> list[str]:
         WebDriverWait(driver, PAGE_WAIT).until(
             lambda d: d.execute_script("return document.readyState") == "complete"
         )
-        WebDriverWait(driver, PAGE_WAIT).until(
-            EC.presence_of_element_located((By.CLASS_NAME, "rPDeLR"))
-        )
-        products = driver.find_elements(By.CLASS_NAME, "rPDeLR")
+        
+        # Scroll to bottom to trigger dynamic loading of images/links
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(3)
+        
+        try:
+            WebDriverWait(driver, PAGE_WAIT).until(
+                EC.presence_of_all_elements_located((By.CSS_SELECTOR, "a[href*='/p/']"))
+            )
+        except Exception as e:
+            log.error("Timeout waiting for product links on %s", page_link)
+            log.error("Page Title: %s", driver.title)
+            log.error("Page Source (first 1000 chars): %s", driver.page_source[:1000])
+            if "captcha" in driver.page_source.lower() or "verify" in driver.page_source.lower() or "bot" in driver.page_source.lower():
+                log.error("🚨 Flipkart Bot Challenge / Captcha Detected!")
+            raise e
+            
+        products = driver.find_elements(By.CSS_SELECTOR, "a[href*='/p/']")
         links = [el.get_attribute("href") for el in products]
-        all_product_links.extend(links)
-        log.info("  %s → %d links collected", page_link.split("page=")[-1], len(links))
+        
+        # Filter strictly for product links (in case footer has /p/ links)
+        # Using a set to remove duplicates on the same page
+        page_product_urls = {link for link in links if link and "/p/" in link and "flipkart.com" in link}
+        all_product_links.extend(page_product_urls)
+        log.info("  %s → %d unique links collected", page_link.split("page=")[-1], len(page_product_urls))
 
     # Deduplicate
     unique_links = list(dict.fromkeys(all_product_links))
