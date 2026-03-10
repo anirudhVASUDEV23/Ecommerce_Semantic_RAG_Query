@@ -67,19 +67,28 @@ def get_driver() -> webdriver.Chrome:
     opts.add_argument("--disable-dev-shm-usage")
     opts.add_argument("--disable-gpu")
     opts.add_argument("--window-size=1920,1080")
+    opts.add_argument("--disable-extensions")
+    opts.add_argument("--disable-infobars")
+    opts.add_argument("--disable-blink-features=AutomationControlled")
+    opts.add_experimental_option("excludeSwitches", ["enable-automation"])
+    opts.add_experimental_option("useAutomationExtension", False)
     opts.add_argument(
         "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
     )
     # In GitHub Actions, chromedriver is on PATH; locally Chrome must be installed
-    return webdriver.Chrome(options=opts)
+    driver = webdriver.Chrome(options=opts)
+    driver.set_page_load_timeout(90)   # fail fast instead of hanging 120s
+    driver.set_script_timeout(30)
+    return driver
 
 
 # ── Step 1 : collect product links from search result pages ───────────────────
 def collect_product_links(driver: webdriver.Chrome) -> list[str]:
     log.info("Opening Flipkart and searching for: %s", SEARCH_QUERY)
     driver.get(FLIPKART_HOME)
-    driver.maximize_window()
+    # NOTE: do NOT call driver.maximize_window() here — headless Chrome on Linux
+    # has no display, so maximize hangs and causes a ReadTimeoutError in CI.
 
     # Find search box and submit query
     search_input = WebDriverWait(driver, PAGE_WAIT).until(
