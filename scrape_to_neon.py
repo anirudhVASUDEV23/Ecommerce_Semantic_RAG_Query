@@ -62,13 +62,18 @@ CREATE TABLE IF NOT EXISTS product (
 def get_driver() -> webdriver.Chrome:
     """Return a headless Chrome WebDriver."""
     opts = Options()
-    opts.add_argument("--headless=new")
+    # Use classic --headless (not --headless=new) — Chrome 145 has renderer
+    # crashes with the new headless mode on GitHub Actions Linux runners.
+    opts.add_argument("--headless")
     opts.add_argument("--no-sandbox")
     opts.add_argument("--disable-dev-shm-usage")
     opts.add_argument("--disable-gpu")
     opts.add_argument("--window-size=1920,1080")
     opts.add_argument("--disable-extensions")
     opts.add_argument("--disable-infobars")
+    opts.add_argument("--single-process")           # prevents renderer subprocess crashes in CI
+    opts.add_argument("--disable-renderer-backgrounding")
+    opts.add_argument("--disable-backgrounding-occluded-windows")
     opts.add_argument("--disable-blink-features=AutomationControlled")
     opts.add_experimental_option("excludeSwitches", ["enable-automation"])
     opts.add_experimental_option("useAutomationExtension", False)
@@ -76,19 +81,24 @@ def get_driver() -> webdriver.Chrome:
         "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
     )
-    # In GitHub Actions, chromedriver is on PATH; locally Chrome must be installed
-    driver = webdriver.Chrome(options=opts)
-    driver.set_page_load_timeout(90)   # fail fast instead of hanging 120s
-    driver.set_script_timeout(30)
-    return driver
+    # NOTE: do NOT call set_page_load_timeout() — it corrupts Chrome's internal
+    # timeout (produces -0.005) and causes immediate renderer crashes on CI.
+    return webdriver.Chrome(options=opts)
 
 
 # ── Step 1 : collect product links from search result pages ───────────────────
 def collect_product_links(driver: webdriver.Chrome) -> list[str]:
     log.info("Opening Flipkart and searching for: %s", SEARCH_QUERY)
-    driver.get(FLIPKART_HOME)
-    # NOTE: do NOT call driver.maximize_window() here — headless Chrome on Linux
-    # has no display, so maximize hangs and causes a ReadTimeoutError in CI.
+    # Retry the initial page load — renderer can transiently crash on first hit
+    for attempt in range(1, 4):
+        try:
+            driver.get(FLIPKART_HOME)
+            break
+        except Exception as e:
+            log.warning("driver.get attempt %d/3 failed: %s", attempt, e)
+            if attempt == 3:
+                raise
+            time.sleep(5)
 
     # Find search box and submit query
     search_input = WebDriverWait(driver, PAGE_WAIT).until(
